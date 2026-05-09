@@ -519,9 +519,10 @@ let SERVICES = [];
 async function loadServicesFromSupabase() {
   try {
     // Carregar serviços de hoje e próximos 7 dias, filtrados pelo staff depois
-    const futureDate = new Date(today); futureDate.setDate(futureDate.getDate()+7);
-    const futureStr = futureDate.toISOString().slice(0,10);
-    const raw = await supaGet('v_servicos', `?data=gte.${todayStr}&data=lte.${futureStr}&order=data,inicio`);
+    // Fim do mês atual
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    const endOfMonthStr = endOfMonth.toISOString().slice(0,10);
+    const raw = await supaGet('v_servicos', `?data=gte.${todayStr}&data=lte.${endOfMonthStr}&order=data,inicio`);
     SERVICES = raw.map(r => ({
       id: r.id,
       propId: r.prop_id,

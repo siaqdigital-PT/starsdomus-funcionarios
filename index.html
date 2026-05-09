@@ -420,8 +420,8 @@ if ('serviceWorker' in navigator) {
       <!-- Justification form -->
       <div class="form-group">
         <label class="form-label">📷 Foto do Local (obrigatório)</label>
+        <input type="file" id="geo-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(this)">
         <div class="photo-area" id="photo-area">
-          <input type="file" id="geo-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(this)">
           <div class="photo-icon">📷</div>
           <div class="photo-text">Tira uma foto do local</div>
         </div>

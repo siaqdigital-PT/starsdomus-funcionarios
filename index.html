@@ -961,6 +961,13 @@ function tryStartService(servId) {
   const s = SERVICES.find(x=>x.id===servId);
   const prop = getProp(s.propId);
 
+  // Verificar se hoje é o dia da marcação
+  if (s.data && s.data !== todayStr) {
+    const dataFormatada = new Date(s.data+'T12:00:00').toLocaleDateString('pt-PT', {weekday:'long', day:'numeric', month:'long'});
+    showAlert(`Este serviço está agendado para ${dataFormatada}. Não é possível iniciá-lo hoje.`, 'red');
+    return;
+  }
+
   if (userLat===null) {
     // No GPS at all — show alert anyway
     showGeoModal(prop, null, true);

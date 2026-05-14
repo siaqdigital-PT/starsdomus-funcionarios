@@ -128,6 +128,7 @@ html, body {
 .staff-name { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; border-radius: 14px; cursor: pointer; border: 1px solid var(--border); background: var(--card); transition: all 0.15s; }
 .staff-name.selected { border-color: var(--gold); background: #F4E9C9; }
 .staff-avatar { width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 800; }
+.tab-active { color: var(--gold-deep) !important; border-bottom-color: var(--gold-deep) !important; }
 
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(30,24,16,0.55); backdrop-filter: blur(6px); display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
@@ -336,8 +337,11 @@ if ('serviceWorker' in navigator) {
     <!-- Active service banner -->
     <div id="active-banner" style="display:none"></div>
 
-    <!-- Today's services -->
-    <div class="section-lbl" id="serv-section-lbl">Os meus serviços de hoje</div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;background:#fff;">
+      <button id="tab-pendentes" class="tab-active" onclick="switchTab('pendentes')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:12px;font-family:var(--font-sans);font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;color:var(--text-muted);margin-bottom:-2px;transition:all 0.15s">Agendados</button>
+      <button id="tab-concluidos" onclick="switchTab('concluidos')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:12px;font-family:var(--font-sans);font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;color:var(--text-muted);margin-bottom:-2px;transition:all 0.15s">Concluídos</button>
+    </div>
     <div id="services-list"></div>
   </div>
 </div>
@@ -427,8 +431,8 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">✍️ Justificação escrita (obrigatório)</label>
+      <div class="form-group" id="geo-justif-group">
+        <label class="form-label">✍️ Justificação escrita (obrigatório quando fora do raio)</label>
         <textarea class="form-ctrl" id="geo-justif" rows="3" placeholder="Explica porque estás fora do raio esperado..."></textarea>
       </div>
     </div>
@@ -534,7 +538,10 @@ async function loadServicesFromSupabase() {
       staff: Array.isArray(r.staff) ? r.staff.map(s=>s.id) : [],
       obs: r.observacoes || '',
       km: r.km || '',
-      empresa: r.empresa || ''
+      empresa: r.empresa || '',
+      inicio_real: r.inicio_real || null,
+      fim_real: r.fim_real || null,
+      duracao_min: r.duracao_min || null
     }));
     // Populate PROPS with loaded properties
     raw.forEach(r=>{
@@ -858,17 +865,27 @@ function geoHTML(status, main, sub) {
 // ═══════════════════════════════════════════
 // RENDER SERVICES
 // ═══════════════════════════════════════════
+let activeTab = 'pendentes'; // 'pendentes' | 'concluidos'
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-pendentes').classList.toggle('tab-active', tab==='pendentes');
+  document.getElementById('tab-concluidos').classList.toggle('tab-active', tab==='concluidos');
+  renderServices();
+}
+
 function renderServices() {
-  const myServices = SERVICES.filter(s=>s.staff.some(sid=>String(sid)===String(currentUser.id)));
+  const allMine = SERVICES.filter(s=>s.staff.some(sid=>String(sid)===String(currentUser.id)));
+  const myServices = activeTab==='concluidos'
+    ? allMine.filter(s=>s.estado==='concluido').sort((a,b)=>b.data.localeCompare(a.data)||(b.inicio_real||b.inicio).localeCompare(a.inicio_real||a.inicio))
+    : allMine.filter(s=>s.estado!=='concluido').sort((a,b)=>(a.data||'').localeCompare(b.data||'')||((a.inicio||'').localeCompare(b.inicio||'')));
   const list = document.getElementById('services-list');
 
   if (myServices.length===0) {
-    list.innerHTML=`<div class="empty"><div class="empty-icon">◈</div><div class="empty-text">Sem serviços agendados</div></div>`;
+    list.innerHTML=`<div class="empty"><div class="empty-icon">◈</div><div class="empty-text">${activeTab==='concluidos'?'Sem serviços concluídos':'Sem serviços agendados'}</div></div>`;
     return;
   }
 
-  // Sort by date then time
-  myServices.sort((a,b)=>(a.data||'').localeCompare(b.data||'')||((a.inicio||'').localeCompare(b.inicio||'')));
   list.innerHTML = myServices.map(s=>{
     const prop = getProp(s.propId);
     const isActive = s.id===activeServiceId;
@@ -894,8 +911,15 @@ function renderServices() {
       <div class="serv-body">
         <div class="serv-row">
           <div class="serv-icon">⏰</div>
-          <div class="serv-meta">Horário previsto: <strong>${s.inicio} – ${s.fim}</strong></div>
+          <div class="serv-meta">Horário previsto: <strong>${s.inicio}${s.fim?' – '+s.fim:''}</strong></div>
         </div>
+        ${s.inicio_real ? `<div class="serv-row">
+          <div class="serv-icon">▶</div>
+          <div class="serv-meta">Iniciado às: <strong>${new Date(s.inicio_real).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</strong>
+          ${s.fim_real ? ` · Terminou: <strong>${new Date(s.fim_real).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</strong>` : ''}
+          ${s.duracao_min ? ` · Duração real: <strong>${Math.floor(s.duracao_min/60)}h${(s.duracao_min%60).toString().padStart(2,'0')}min</strong>` : ''}
+          </div>
+        </div>` : ''}
         ${colleagues.length>0?`<div class="serv-row"><div class="serv-icon">👥</div><div class="serv-meta">Colega(s): <strong>${colleagues.join(', ')}</strong></div></div>`:''}
 
         <!-- Notas da propriedade -->
@@ -915,7 +939,9 @@ function renderServices() {
           <button onclick="openFotos('${s.id}')" style="background:var(--dark3);border:1px solid ${fotosCount>0?'rgba(92,143,224,0.4)':'var(--border)'};border-radius:10px;color:${fotosCount>0?'var(--blue)':'var(--text-muted)'};font-family:var(--font-sans),sans-serif;font-size:12px;font-weight:600;padding:10px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
             📷 Fotos${fotosCount>0?` (${fotosCount})`:''}
           </button>
-        </div>` : ''}
+        </div>
+        ${isDone ? `<div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:6px;font-style:italic">Serviço concluído — apenas consulta</div>` : ''}
+        ` : ''}
 
         <!-- Action button -->
         ${renderActionBtn(s, isActive, isDone)}
@@ -991,10 +1017,12 @@ function showGeoModal(prop, dist, noGps) {
 
   if (noGps) {
     geoSub.textContent = 'Não foi possível obter a tua localização';
-    geoAlertText.textContent = `O GPS não está disponível. Para iniciares o serviço em "${prop.nome}" sem confirmação de localização, tira uma foto do local e escreve uma justificação.`;
+    geoAlertText.textContent = `Não foi possível obter a localização. Tira uma foto do local para confirmar a tua presença em "${prop.nome}".`;
+    const jg1 = document.getElementById('geo-justif-group'); if(jg1) jg1.style.display='none';
   } else {
     geoSub.textContent = `Estás a ${dist}m de "${prop.nome}" (raio: ${GEO_RADIUS}m)`;
-    geoAlertText.textContent = `A tua localização atual está a ${dist} metros da propriedade "${prop.nome}". O raio permitido é de ${GEO_RADIUS} metros. Para continuares, tira uma foto do local e escreve uma justificação — o gestor será notificado.`;
+    geoAlertText.textContent = `Estás a ${dist} metros da propriedade "${prop.nome}" (raio permitido: ${GEO_RADIUS}m). Tira uma foto do local e escreve uma justificação — o gestor será notificado.`;
+    const jg2 = document.getElementById('geo-justif-group'); if(jg2) jg2.style.display='';
   }
 
   // Draw simple map visualization
@@ -1051,7 +1079,9 @@ function handlePhoto(input) {
 function confirmWithJustif() {
   const justif = document.getElementById('geo-justif').value.trim();
   if (!capturedPhoto) { showAlert('Tira uma foto do local primeiro.'); return; }
-  if (justif.length < 10) { showAlert('Escreve uma justificação mais detalhada (mín. 10 caracteres).'); return; }
+  const justifGroup = document.getElementById('geo-justif-group');
+  const justifRequired = justifGroup && justifGroup.style.display !== 'none';
+  if (justifRequired && justif.length < 10) { showAlert('Escreve uma justificação mais detalhada (mín. 10 caracteres).'); return; }
 
   // Log the suspicious check-in
   const s = SERVICES.find(x=>x.id===pendingServiceId);

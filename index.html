@@ -594,18 +594,17 @@ function getProp(id) { return PROPS.find(p=>String(p.id)===String(id)); }
 // LOGIN — STAFF SELECTION
 // ═══════════════════════════════════════════
 function buildLogin() {
-  const grid = document.getElementById('login-grid');
-  // Try to load staff from Supabase, fall back to hardcoded
+  // Renderiza imediatamente com STAFF hardcoded
+  renderLoginGrid();
+  // Tenta actualizar do Supabase em background
   supaGet('staff','?ativo=eq.true&order=nome').then(raw=>{
     if(raw && raw.length) {
-      STAFF.length=0;
-      raw.forEach(s=>STAFF.push({id:s.id,nome:s.nome,iniciais:s.iniciais,cor:s.cor,nomeCor:s.cor,pin:s.pin||'1234'}));
-      // update colour contrast
       const lightMap={'#C9A84C':'#F5D080','#5C8FE0':'#8AB4F8','#4CAF7D':'#7DE0A8','#E05C5C':'#F08080','#9b5ce0':'#C89AF5','#E09B5C':'#F5C080'};
-      STAFF.forEach(s=>{ s.nomeCor=lightMap[s.cor]||s.cor; });
+      STAFF.length=0;
+      raw.forEach(s=>STAFF.push({id:s.id,nome:s.nome,iniciais:s.iniciais,cor:s.cor,nomeCor:lightMap[s.cor]||s.cor,pin:s.pin||'1234'}));
+      renderLoginGrid();
     }
-    renderLoginGrid();
-  }).catch(()=>renderLoginGrid());
+  }).catch(e=>console.warn('Staff load failed, using hardcoded:', e));
 }
 
 function renderLoginGrid() {

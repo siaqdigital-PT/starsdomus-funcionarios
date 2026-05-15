@@ -523,10 +523,12 @@ let SERVICES = [];
 async function loadServicesFromSupabase() {
   try {
     // Carregar serviços de hoje e próximos 7 dias, filtrados pelo staff depois
-    // Fim do mês atual
+    // Início do mês anterior até fim do mês atual (histórico visível)
+    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    const startOfLastMonthStr = startOfLastMonth.toISOString().slice(0,10);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth()+1, 0);
     const endOfMonthStr = endOfMonth.toISOString().slice(0,10);
-    const raw = await supaGet('v_servicos', `?data=gte.${todayStr}&data=lte.${endOfMonthStr}&order=data,inicio`);
+    const raw = await supaGet('v_servicos', `?data=gte.${startOfLastMonthStr}&data=lte.${endOfMonthStr}&order=data,inicio`);
     SERVICES = raw.map(r => ({
       id: r.id,
       propId: r.prop_id,
@@ -799,6 +801,16 @@ async function login(id) {
   currentUser = STAFF.find(s=>String(s.id)===String(id));
   document.getElementById('screen-pin').classList.remove('active');
   document.getElementById('screen-main').classList.add('active');
+  // FIX 2.6: Restaurar serviço em curso após refresh/reload
+  const myPending = SERVICES.find(s =>
+    s.estado === 'pendente' &&
+    s.staff.some(sid => String(sid) === String(currentUser.id))
+  );
+  if (myPending && myPending.inicio_real) {
+    activeServiceId = myPending.id;
+    activeStartTime = new Date(myPending.inicio_real).getTime();
+    startTimer();
+  }
 
   // Set topbar
   const av = document.getElementById('main-av');
@@ -820,6 +832,8 @@ async function login(id) {
 function logout() {
   if (timerInterval) clearInterval(timerInterval);
   if (geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
+  // Limpar tags OneSignal para não herdar sessão anterior
+  try { if(window.OneSignal) OneSignal.User.removeTag('staff_id'); } catch(e) {}
   activeServiceId = null; activeStartTime = null; currentUser = null;
   pinEntry = ''; pinCandidate = null;
   document.getElementById('screen-main').classList.remove('active');
@@ -957,6 +971,10 @@ function renderActionBtn(s, isActive, isDone) {
   if (isDone) return `<button class="action-btn btn-disabled" disabled>✓ Serviço concluído</button>`;
   if (isActive) return `<button class="action-btn btn-finish" onclick="confirmarConcluir('${s.id}')">⏹ Terminar Serviço</button>`;
   if (activeServiceId && activeServiceId!==s.id) return `<button class="action-btn btn-disabled" disabled>Tens um serviço em curso</button>`;
+  if (s.data && s.data !== todayStr) {
+    const diasFalta = Math.round((new Date(s.data+'T12:00:00') - new Date()) / 86400000);
+    return `<button class="action-btn btn-disabled" disabled style="opacity:0.6">📅 Disponível em ${diasFalta} dia${diasFalta!==1?'s':''}</button>`;
+  }
   return `<button class="action-btn btn-start" onclick="tryStartService('${s.id}')">▶ Iniciar Serviço</button>`;
 }
 
@@ -1052,6 +1070,7 @@ function showGeoModal(prop, dist, noGps) {
     <div class="photo-text">Tira uma foto do local</div>`;
   pa.onclick = triggerCamera;
 
+  window._lastGeoDist = null;
   openModal('modal-geo');
 }
 
@@ -1110,10 +1129,14 @@ async function logSuspiciousCheckin(prop, justif, photo) {
   // Guardar no Supabase com a foto em base64
   try {
     const s = SERVICES.find(x=>String(x.id)===String(pendingServiceId));
-    await supaPost('geo_alertas', {
+    await const _gProp = getProp(s?.propId);
+    supaPost('geo_alertas', {
       servico_id: s?.id || null,
       staff_id: currentUser.id,
-      distancia_m: null,
+      prop_id: s?.propId || null,
+      prop: _gProp?.nome || '—',
+      staff: currentUser.nome,
+      distancia_m: window._lastGeoDist || null,
       justificacao: justif,
       foto_url: photoCompressed || null,
       resolvido: false
@@ -1422,8 +1445,9 @@ function saveChecklist() {
   // Save to Supabase (fire and forget)
   supaPost('checklist_resultados', {
     servico_id: currentChecklistServId,
-    feito: isDone,
-    nota: JSON.stringify(checklistState)
+    staff_id: currentUser?.id || null,
+    template_id: null,
+    itens: JSON.stringify(checklistState)
   }).catch(()=>{});
   closeModal('modal-checklist');
   renderServices();

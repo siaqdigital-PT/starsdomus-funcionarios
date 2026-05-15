@@ -801,16 +801,6 @@ async function login(id) {
   currentUser = STAFF.find(s=>String(s.id)===String(id));
   document.getElementById('screen-pin').classList.remove('active');
   document.getElementById('screen-main').classList.add('active');
-  // FIX 2.6: Restaurar serviço em curso após refresh/reload
-  const myPending = SERVICES.find(s =>
-    s.estado === 'pendente' &&
-    s.staff.some(sid => String(sid) === String(currentUser.id))
-  );
-  if (myPending && myPending.inicio_real) {
-    activeServiceId = myPending.id;
-    activeStartTime = new Date(myPending.inicio_real).getTime();
-    startTimer();
-  }
 
   // Set topbar
   const av = document.getElementById('main-av');
@@ -825,6 +815,16 @@ async function login(id) {
 
   startGeoWatch();
   await loadServicesFromSupabase();
+  // FIX 2.6: Restaurar serviço em curso após reload (agora que SERVICES está carregado)
+  const myPending = SERVICES.find(s =>
+    s.estado === 'pendente' &&
+    s.staff.some(sid => String(sid) === String(currentUser.id))
+  );
+  if (myPending && myPending.inicio_real) {
+    activeServiceId = myPending.id;
+    activeStartTime = new Date(myPending.inicio_real).getTime();
+    startTimer();
+  }
   initPushNotifications();
   renderServices();
 }

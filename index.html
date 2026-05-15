@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- StarsDomus-Func v2.1 -->
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
@@ -936,7 +937,7 @@ function renderServices() {
         ${colleagues.length>0?`<div class="serv-row"><div class="serv-icon">👥</div><div class="serv-meta">Colega(s): <strong>${colleagues.join(', ')}</strong></div></div>`:''}
 
         <!-- Notas da propriedade -->
-        ${prop?.notas ? `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><div style="font-size:14px;flex-shrink:0">📌</div><div style="font-size:12px;color:var(--text-muted);line-height:1.4">${prop.notas}</div></div>` : ''}
+        ${prop?.notas ? '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><div style="font-size:14px;flex-shrink:0">📌</div><div style="font-size:12px;color:var(--text-muted);line-height:1.4">${prop.notas}</div></div>' : ''}
         <div class="gps-status geo-indicator" data-prop-id="${s.propId}" id="geo-${s.id}">
           <span class="gps-dot checking"></span>
           <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--orange)">A obter localização...</div></div>
@@ -1128,7 +1129,7 @@ async function logSuspiciousCheckin(prop, justif, photo) {
   // Guardar no Supabase com a foto em base64
   try {
     const s = SERVICES.find(x=>String(x.id)===String(pendingServiceId));
-    await const _gProp = getProp(s?.propId);
+    const _gProp = getProp(s?.propId);
     supaPost('geo_alertas', {
       servico_id: s?.id || null,
       staff_id: currentUser.id,

@@ -1021,9 +1021,9 @@ function tryStartService(servId) {
     return;
   }
 
-  // Se propriedade sem coordenadas, iniciar sem verificar geo
+  // Se propriedade sem coordenadas: pedir foto mas não GPS
   if (!prop.lat || !prop.lng || isNaN(prop.lat) || isNaN(prop.lng)) {
-    confirmStart(servId, null, true);
+    showGeoModal(prop, null, true); // noGps=true → pede foto, sem justificação
     return;
   }
   const dist = Math.round(haversine(userLat, userLng, prop.lat, prop.lng));

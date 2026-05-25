@@ -861,9 +861,10 @@ function updateGeoIndicators() {
     const propId = el.dataset.propId;
     const prop = getProp(propId);
     if (!prop||userLat===null) { el.innerHTML=geoHTML('pending','A obter localização...',''); return; }
+    if (!prop.lat || !prop.lng) { el.innerHTML = geoHTML('ok','Coordenadas não definidas',`Raio: ${GEO_RADIUS}m`); return; }
     const dist = Math.round(haversine(userLat,userLng,prop.lat,prop.lng));
-    const ok = dist<=GEO_RADIUS;
-    el.innerHTML = geoHTML(ok?'ok':'fail', ok?`Estás no local`:`${dist}m do local`, `Raio: ${GEO_RADIUS}m`);
+    const ok = !isNaN(dist) && dist<=GEO_RADIUS;
+    el.innerHTML = geoHTML(ok?'ok':'fail', ok?`Estás no local`:`${isNaN(dist)?'?':dist}m do local`, `Raio: ${GEO_RADIUS}m`);
   });
 }
 
@@ -1020,10 +1021,15 @@ function tryStartService(servId) {
     return;
   }
 
+  // Se propriedade sem coordenadas, iniciar sem verificar geo
+  if (!prop.lat || !prop.lng || isNaN(prop.lat) || isNaN(prop.lng)) {
+    confirmStart(servId, null, true);
+    return;
+  }
   const dist = Math.round(haversine(userLat, userLng, prop.lat, prop.lng));
-  if (dist <= GEO_RADIUS) {
-    // ✅ Within radius — start immediately
-    confirmStart(servId, dist, true);
+  if (isNaN(dist) || dist <= GEO_RADIUS) {
+    // ✅ Within radius (or no valid coords) — start immediately
+    confirmStart(servId, isNaN(dist) ? null : dist, true);
   } else {
     // ❌ Out of radius — show justification modal
     showGeoModal(prop, dist, false);
@@ -1040,8 +1046,9 @@ function showGeoModal(prop, dist, noGps) {
     geoAlertText.textContent = `Não foi possível obter a localização. Tira uma foto do local para confirmar a tua presença em "${prop.nome}".`;
     const jg1 = document.getElementById('geo-justif-group'); if(jg1) jg1.style.display='none';
   } else {
-    geoSub.textContent = `Estás a ${dist}m de "${prop.nome}" (raio: ${GEO_RADIUS}m)`;
-    geoAlertText.textContent = `Estás a ${dist} metros da propriedade "${prop.nome}" (raio permitido: ${GEO_RADIUS}m). Tira uma foto do local e escreve uma justificação — o gestor será notificado.`;
+    const distStr = (dist && !isNaN(dist)) ? dist : '?';
+    geoSub.textContent = `Estás a ${distStr}m de "${prop.nome}" (raio: ${GEO_RADIUS}m)`;
+    geoAlertText.textContent = `Estás a ${distStr} metros da propriedade "${prop.nome}" (raio permitido: ${GEO_RADIUS}m). Tira uma foto do local e escreve uma justificação — o gestor será notificado.`;
     const jg2 = document.getElementById('geo-justif-group'); if(jg2) jg2.style.display='';
   }
 
@@ -1058,7 +1065,7 @@ function showGeoModal(prop, dist, noGps) {
       <div class="map-pin house" style="left:50%;top:50%;font-size:24px">📍</div>
       <div class="map-pin person" style="left:72%;top:35%;font-size:20px">🔴</div>
       <div class="map-label" style="left:52%;top:54%;color:var(--gold);font-size:9px">${prop.nome}</div>
-      <div class="map-label" style="left:60%;top:35%;color:var(--red);font-size:9px">Tu (${dist}m)</div>
+      <div class="map-label" style="left:60%;top:35%;color:var(--red);font-size:9px">Tu (${(dist&&!isNaN(dist))?dist:'?'}m)</div>
       <div class="map-label" style="bottom:10px;right:12px;color:var(--text-muted)">Raio: ${GEO_RADIUS}m</div>
     `}
   `;

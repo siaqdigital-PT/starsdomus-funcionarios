@@ -895,7 +895,7 @@ function renderServices() {
   const allMine = SERVICES.filter(s=>s.staff.some(sid=>String(sid)===String(currentUser.id)));
   const myServices = activeTab==='concluidos'
     ? allMine.filter(s=>s.estado==='concluido').sort((a,b)=>b.data.localeCompare(a.data)||(b.inicio_real||b.inicio).localeCompare(a.inicio_real||a.inicio))
-    : allMine.filter(s=>s.estado!=='concluido').sort((a,b)=>(a.data||'').localeCompare(b.data||'')||((a.inicio||'').localeCompare(b.inicio||'')));
+    : allMine.filter(s=>s.estado!=='concluido').sort((a,b)=>{ const ao=a.data<todayStr, bo=b.data<todayStr; if(ao&&!bo)return -1; if(!ao&&bo)return 1; return (a.data||'').localeCompare(b.data||'')||((a.inicio||'').localeCompare(b.inicio||'')); });
   const list = document.getElementById('services-list');
 
   if (myServices.length===0) {
@@ -940,7 +940,7 @@ function renderServices() {
         ${colleagues.length>0?`<div class="serv-row"><div class="serv-icon">👥</div><div class="serv-meta">Colega(s): <strong>${colleagues.join(', ')}</strong></div></div>`:''}
 
         <!-- Notas da propriedade -->
-        ${prop?.notas ? '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><div style="font-size:14px;flex-shrink:0">📌</div><div style="font-size:12px;color:var(--text-muted);line-height:1.4">${prop.notas}</div></div>' : ''}
+        ${prop?.notas ? `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><div style="font-size:14px;flex-shrink:0">📌</div><div style="font-size:12px;color:var(--text-muted);line-height:1.4">${prop.notas}</div></div>` : ''}
         <div class="gps-status geo-indicator" data-prop-id="${s.propId}" id="geo-${s.id}">
           <span class="gps-dot checking"></span>
           <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--orange)">A obter localização...</div></div>
@@ -976,6 +976,10 @@ function renderActionBtn(s, isActive, isDone) {
   if (activeServiceId && activeServiceId!==s.id) return `<button class="action-btn btn-disabled" disabled>Tens um serviço em curso</button>`;
   if (s.data && s.data !== todayStr) {
     const diasFalta = Math.round((new Date(s.data+'T12:00:00') - new Date()) / 86400000);
+    if (diasFalta < 0) {
+      // Serviço passado não concluído
+      return `<button class="action-btn btn-disabled" disabled style="opacity:0.5;background:rgba(224,92,92,0.08);border-color:rgba(224,92,92,0.2);color:var(--red)">⚠ Não realizado — contacta o gestor</button>`;
+    }
     return `<button class="action-btn btn-disabled" disabled style="opacity:0.6">📅 Disponível em ${diasFalta} dia${diasFalta!==1?'s':''}</button>`;
   }
   return `<button class="action-btn btn-start" onclick="tryStartService('${s.id}')">▶ Iniciar Serviço</button>`;

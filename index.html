@@ -851,8 +851,14 @@ function startGeoWatch() {
   if (!navigator.geolocation) return;
   geoWatchId = navigator.geolocation.watchPosition(
     pos => { userLat=pos.coords.latitude; userLng=pos.coords.longitude; updateGeoIndicators(); },
-    err => { userLat=null; userLng=null; updateGeoIndicators(); },
-    { enableHighAccuracy:true, maximumAge:5000, timeout:10000 }
+    err => {
+      if (err.code === 1) {
+        // PERMISSION_DENIED — GPS blocked by user
+        console.warn('GPS: permissão negada');
+      }
+      userLat=null; userLng=null; updateGeoIndicators();
+    },
+    { enableHighAccuracy:true, maximumAge:10000, timeout:15000 }
   );
 }
 
@@ -1019,23 +1025,35 @@ function tryStartService(servId) {
     return;
   }
 
-  if (userLat===null) {
-    // No GPS at all — show alert anyway
+  // Se propriedade sem coordenadas: pedir foto mas não GPS
+  if (!prop.lat || !prop.lng || isNaN(parseFloat(prop.lat)) || isNaN(parseFloat(prop.lng))) {
     showGeoModal(prop, null, true);
     return;
   }
 
-  // Se propriedade sem coordenadas: pedir foto mas não GPS
-  if (!prop.lat || !prop.lng || isNaN(prop.lat) || isNaN(prop.lng)) {
-    showGeoModal(prop, null, true); // noGps=true → pede foto, sem justificação
+  // Se GPS ainda não está pronto, tentar obter agora (até 8 segundos)
+  if (userLat === null) {
+    showToast('A obter localização...', '📡');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        updateGeoIndicators();
+        tryStartService(servId); // retry com GPS
+      },
+      err => {
+        // GPS falhou mesmo — pedir foto sem GPS
+        showGeoModal(prop, null, true);
+      },
+      { timeout: 8000, maximumAge: 30000, enableHighAccuracy: true }
+    );
     return;
   }
-  const dist = Math.round(haversine(userLat, userLng, prop.lat, prop.lng));
+
+  const dist = Math.round(haversine(userLat, userLng, parseFloat(prop.lat), parseFloat(prop.lng)));
   if (isNaN(dist) || dist <= GEO_RADIUS) {
-    // ✅ Within radius (or no valid coords) — start immediately
     confirmStart(servId, isNaN(dist) ? null : dist, true);
   } else {
-    // ❌ Out of radius — show justification modal
     showGeoModal(prop, dist, false);
   }
 }

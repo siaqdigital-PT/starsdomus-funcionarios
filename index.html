@@ -850,7 +850,16 @@ function logout() {
 function startGeoWatch() {
   if (!navigator.geolocation) return;
   geoWatchId = navigator.geolocation.watchPosition(
-    pos => { userLat=pos.coords.latitude; userLng=pos.coords.longitude; updateGeoIndicators(); },
+    pos => {
+      userLat=pos.coords.latitude;
+      userLng=pos.coords.longitude;
+      updateGeoIndicators();
+      // Re-enable any waiting start buttons
+      document.querySelectorAll('.btn-start[disabled]').forEach(b => {
+        b.disabled = false;
+        b.textContent = '▶ Iniciar Serviço';
+      });
+    },
     err => {
       if (err.code === 1) {
         console.warn('GPS: permissão negada pelo utilizador');
@@ -1039,18 +1048,25 @@ function tryStartService(servId) {
     return;
   }
 
-  // Se GPS ainda não está pronto, tentar obter agora (até 8 segundos)
+  // Se GPS ainda não está pronto, tentar obter agora
   if (userLat === null) {
-    showToast('A obter localização...', '📡');
+    // Show loading state on button
+    const startBtn = document.querySelector(`[onclick="tryStartService('${servId}')"]`);
+    if (startBtn) {
+      startBtn.disabled = true;
+      startBtn.textContent = '📡 A obter GPS...';
+    }
     navigator.geolocation.getCurrentPosition(
       pos => {
         userLat = pos.coords.latitude;
         userLng = pos.coords.longitude;
         updateGeoIndicators();
+        if (startBtn) { startBtn.disabled = false; startBtn.textContent = '▶ Iniciar Serviço'; }
         tryStartService(servId); // retry com GPS
       },
       err => {
-        // GPS falhou mesmo — pedir foto sem GPS
+        if (startBtn) { startBtn.disabled = false; startBtn.textContent = '▶ Iniciar Serviço'; }
+        // GPS falhou — pedir foto sem GPS
         showGeoModal(prop, null, true);
       },
       { timeout: 15000, maximumAge: 60000, enableHighAccuracy: false }

@@ -338,14 +338,7 @@ if ('serviceWorker' in navigator) {
   <div class="scroll-body">
     <!-- Active service banner -->
     <div id="active-banner" style="display:none"></div>
-  <!-- GPS DIAGNOSTIC — remove after testing -->
-  <div style="margin:8px 16px;padding:10px 12px;background:#fff;border-radius:8px;border:1px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase">Diagnóstico GPS</span>
-      <button onclick="gpsTest()" style="background:var(--gold-deep);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer">Testar GPS</button>
-    </div>
-    <div id="gps-diag" style="font-size:12px;color:var(--text-muted)">Clica "Testar GPS" para verificar</div>
-  </div>
+
 
     <!-- Tabs -->
     <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;background:#fff;">
@@ -559,7 +552,7 @@ async function loadServicesFromSupabase() {
     // Populate PROPS with loaded properties
     raw.forEach(r=>{
       if(r.prop_id && !PROPS.find(p=>String(p.id)===String(r.prop_id))) {
-        PROPS.push({id:r.prop_id,nome:r.prop_nome||'—',morada:r.prop_morada||'',emoji:r.prop_emoji||'🏠',lat:r.lat,lng:r.lng,notas:r.prop_notas||''});
+        PROPS.push({id:r.prop_id,nome:r.prop_nome||'—',morada:r.prop_morada||'',emoji:r.prop_emoji||'🏠',lat:r.prop_lat||r.lat||null,lng:r.prop_lng||r.lng||null,notas:r.prop_notas||''});
       }
     });
   } catch(e) {

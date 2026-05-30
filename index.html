@@ -853,12 +853,20 @@ function startGeoWatch() {
     pos => { userLat=pos.coords.latitude; userLng=pos.coords.longitude; updateGeoIndicators(); },
     err => {
       if (err.code === 1) {
-        // PERMISSION_DENIED — GPS blocked by user
-        console.warn('GPS: permissão negada');
+        console.warn('GPS: permissão negada pelo utilizador');
+      } else if (err.code === 3) {
+        console.warn('GPS: timeout — a tentar com baixa precisão');
+        // Try again with low accuracy (faster, uses network)
+        navigator.geolocation.getCurrentPosition(
+          pos => { userLat=pos.coords.latitude; userLng=pos.coords.longitude; updateGeoIndicators(); },
+          () => { userLat=null; userLng=null; updateGeoIndicators(); },
+          { enableHighAccuracy:false, maximumAge:60000, timeout:10000 }
+        );
+        return;
       }
       userLat=null; userLng=null; updateGeoIndicators();
     },
-    { enableHighAccuracy:true, maximumAge:10000, timeout:15000 }
+    { enableHighAccuracy:false, maximumAge:30000, timeout:20000 }
   );
 }
 
@@ -1045,7 +1053,7 @@ function tryStartService(servId) {
         // GPS falhou mesmo — pedir foto sem GPS
         showGeoModal(prop, null, true);
       },
-      { timeout: 8000, maximumAge: 30000, enableHighAccuracy: true }
+      { timeout: 15000, maximumAge: 60000, enableHighAccuracy: false }
     );
     return;
   }
